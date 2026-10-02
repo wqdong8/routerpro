@@ -1,0 +1,49 @@
+#!/bin/sh /etc/rc.common
+
+USE_PROCD=1
+START=99
+STOP=10
+
+start_service() {
+    local base=/data/rd15-proxy
+    local runtime=/tmp/rd15-proxy
+    local available
+    available=$(awk '/MemAvailable:/ {print $2}' /proc/meminfo)
+    if [ "$available" -lt 24576 ]; then
+        echo "Insufficient available memory to start the proxy" >&2
+        return 1
+    fi
+    mkdir -p "$runtime/bundle"
+    chmod 700 "$runtime"
+    if ! grep -q " $runtime/bundle " /proc/mounts; then
+        mount -t squashfs -o loop,ro "$base/service.squashfs" "$runtime/bundle" || return 1
+    fi
+    SAFE_PATHS="$runtime/bundle" GOMEMLIMIT=20MiB GOGC=30 "$runtime/bundle/mihomo" -t -d "$base" -f "$base/config.yaml" > "$runtime/check.log" 2>&1 || {
+        echo "Configuration check failed; see $runtime/check.log" >&2
+        return 1
+    }
+    procd_open_instance
+    procd_set_param command "$runtime/bundle/mihomo" -d "$base" -f "$base/config.yaml"
+    procd_set_param env GOMEMLIMIT=20MiB GOGC=30 SAFE_PATHS="$runtime/bundle"
+    procd_set_param file "$base/config.yaml"
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_close_instance
+    if [ -f "$base/sync-device-policies.sh" ]; then
+        procd_open_instance device-policies
+        procd_set_param command /bin/sh "$base/sync-device-policies.sh"
+        procd_set_param respawn 3600 3 3
+        procd_close_instance
+    fi
+    if [ -f "$base/web/index.html" ]; then
+        procd_open_instance device-manager
+        procd_set_param command /usr/sbin/uhttpd -f -p 192.168.31.1:9091 -h "$base/web" -c "$base/httpd.conf" -x /cgi-bin -D -n 2 -N 8 -t 30 -r "RouterPro"
+        procd_set_param respawn 3600 3 3
+        procd_close_instance
+    fi
+    "$base/firewall.sh" apply-later &
+}
+
+stop_service() {
+    /data/rd15-proxy/firewall.sh stop
+}

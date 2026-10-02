@@ -1,0 +1,33 @@
+# Private credentials, subscriptions and router state
+private/
+access.json
+base.json
+config.yaml
+config.*.json
+settings.json
+httpd.conf
+devices.list
+devices.active
+protected-mac
+providers/
+controller.header
+reload.json
+*.key
+*.pem
+.env
+.env.*
+
+# Generated artifacts and dependencies
+node_modules/
+artifacts/
+*.png
+!docs/assets/*.png
+*.log
+*.squashfs
+*.mrs
+*.next.*
+*.before-*
+__pycache__/
+*.pyc
+.venv/
+.DS_Store

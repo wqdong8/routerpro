@@ -1,0 +1,14 @@
+{
+  "name": "routerpro",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mihomo management console for Xiaomi BE3600 stock firmware",
+  "scripts": {
+    "test": "node tests/check_import.cjs",
+    "check": "node --check web/app.js && node --check web/node-manager.js && node --check web/node-import.js",
+    "test:ui": "node tests/check_ui.cjs && node tests/check_polish.cjs && node tests/check_traffic.cjs",
+    "test:router": "node tests/check_node_manager.cjs",
+    "docs:screenshots": "node tools/screenshots.cjs"
+  },
+  "devDependencies": {"playwright": "^1.58.2"}
+}

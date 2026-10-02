@@ -1,0 +1,78 @@
+#!/usr/bin/lua
+local json = require("cjson")
+local nixio = require("nixio")
+local fs = require("nixio.fs")
+local base = "/data/rd15-proxy/"
+local function read(path)
+    local f = io.open(path, "r"); if not f then return "" end
+    local s = f:read("*a"); f:close(); return s
+end
+local function respond(status,data)
+    io.write("Status: " .. status .. "\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\n\r\n" .. json.encode(data))
+end
+local method = os.getenv("REQUEST_METHOD")
+if method == "GET" then
+    local query = os.getenv("QUERY_STRING") or ""
+    local job = query:match("^job=([%w%-]+)$")
+    if job then
+        if not job:match("^rd15%-manager%-job%-") or #job > 80 then respond("400 Bad Request",{error="Invalid job"}); return end
+        local path = "/tmp/" .. job
+        local result = read(path .. ".response")
+        if result ~= "" then
+            local data = json.decode(result)
+            respond(data.error and "400 Bad Request" or "200 OK", data)
+        elseif read(path) ~= "" then
+            local state = read(path .. ".progress")
+            respond("202 Accepted", state ~= "" and json.decode(state) or {pending=true,stage="waiting"})
+        else respond("404 Not Found",{error="Task expired; refresh to check current configuration"}) end
+        return
+    end
+    local s = read(base .. "settings.json")
+    local settings = s ~= "" and json.decode(s) or {modes={},nodes={},defaultMode="rule"}
+    local access = json.decode(read(base .. "access.json"))
+    settings.adminUser = access.admin_user or access.proxy_user
+    settings.proxyUser = access.proxy_user
+    local config = json.decode(read(base .. "base.json"))
+    settings.groups = config["proxy-groups"]
+    settings.subscriptions = settings.subscriptions or {}
+    local boot = io.open(base .. "boot.enabled", "r")
+    settings.bootEnabled = boot ~= nil
+    if boot then boot:close() end
+    respond("200 OK", settings)
+elseif method == "POST" then
+    local size = tonumber(os.getenv("CONTENT_LENGTH")) or 0
+    if size < 1 or size > 65536 then respond("400 Bad Request", {error="Invalid request size"}); return end
+    local body = io.read(size)
+    local ok, request = pcall(json.decode, body)
+    local access = json.decode(read(base .. "access.json"))
+    if not ok or type(request) ~= "table" then respond("400 Bad Request",{error="Invalid JSON"}); return end
+    if request.csrf ~= access.controller_secret then respond("403 Forbidden",{error="Invalid request token"}); return end
+    local asynchronous = request.action == "save-node" or request.action == "import-nodes" or request.action == "delete-node" or request.action == "device" or request.action == "default" or request.action == "save-group" or request.action == "delete-group" or request.action == "save-subscription" or request.action == "delete-subscription" or request.action == "update-subscription"
+    if asynchronous then
+        local random = io.open("/dev/urandom","r"); local suffix=random:read(6); random:close()
+        suffix=suffix:gsub(".",function(c) return string.format("%02x",c:byte()) end)
+        local job="rd15-manager-job-" .. nixio.getpid() .. "-" .. suffix
+        local path="/tmp/" .. job
+        local f=io.open(path,"w");f:write(body);f:close();fs.chmod(path,"600")
+        for name in fs.dir("/tmp") do
+            if name:match("^rd15%-manager%-job%-[%w%-]+%.response$") then
+                local stat=fs.stat("/tmp/" .. name)
+                if stat and os.time()-stat.mtime>600 then os.remove("/tmp/" .. name) end
+            end
+        end
+        os.execute("/bin/sh " .. base .. "run-job.sh " .. path .. " >/dev/null 2>&1 &")
+        respond("202 Accepted",{job=job});return
+    end
+    local path = "/tmp/rd15-manager-" .. nixio.getpid()
+    local f = io.open(path,"w"); f:write(body); f:close(); fs.chmod(path,"600")
+    local code = os.execute("/bin/sh " .. base .. "manager.sh " .. path)
+    local s = read(path .. ".response")
+    os.remove(path); os.remove(path .. ".response")
+    if s == "" then respond("503 Service Unavailable",{error="Manager busy; retry shortly"}); return end
+    local result = json.decode(s)
+    respond(code == 0 and "200 OK" or "400 Bad Request", result)
+    io.flush()
+    if result.reauthenticate then
+        os.execute("(sleep 2; ubus call service signal '{\"name\":\"rd15-proxy\",\"instance\":\"device-manager\",\"signal\":15}') >/dev/null 2>&1 &")
+    end
+else respond("405 Method Not Allowed",{error="Method not allowed"}) end

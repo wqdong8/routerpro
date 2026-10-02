@@ -1,0 +1,16 @@
+const fs=require('fs'),assert=require('assert/strict');
+const {chromium,access,launchOptions,artifacts}=require('./support.cjs');
+(async()=>{
+ const browser=await chromium.launch(launchOptions);
+ try{for(const width of [1200,390]){
+  const context=await browser.newContext({viewport:{width,height:844},httpCredentials:{username:access.admin_user||access.proxy_user,password:access.admin_password||access.proxy_password}}),page=await context.newPage(),errors=[],writes=[];page.on('pageerror',e=>errors.push(e.message));let settings;
+  await page.route('**/cgi-bin/manage',async route=>{const r=route.request();if(r.method()==='GET'){if(!settings)settings=await (await route.fetch()).json();await route.fulfill({json:settings});return;}const body=r.postDataJSON();writes.push(body.action);await new Promise(resolve=>setTimeout(resolve,650));if(body.action==='boot'){settings.bootEnabled=body.enabled;await route.fulfill({json:{ok:true}});}else await route.fulfill({status:400,json:{error:'Current password is incorrect'}});});
+  await page.goto('http://192.168.31.1:9091/#settings');await page.locator('.account-form').waitFor();await page.waitForTimeout(200);assert(await page.locator('#error').isHidden());
+  const current=page.getByLabel('当前密码',{exact:true});await current.fill('test-only');await page.getByRole('button',{name:'显示当前密码',exact:true}).click();assert.equal(await current.getAttribute('type'),'text');await page.getByRole('button',{name:'隐藏当前密码',exact:true}).click();assert.equal(await current.getAttribute('type'),'password');assert.deepEqual(writes,[]);
+  await page.getByRole('button',{name:'取消修改',exact:true}).click();assert.equal(await current.inputValue(),'');assert.deepEqual(writes,[]);
+  await current.fill('wrong-password');await page.getByLabel('新密码',{exact:true}).fill('test-password-123');await page.getByLabel('确认新密码',{exact:true}).fill('test-password-123');await page.getByRole('button',{name:'保存账号',exact:true}).click();assert(await page.getByRole('button',{name:'正在保存…',exact:true}).isDisabled());assert.equal(await page.getByRole('button',{name:'正在保存…',exact:true}).getAttribute('aria-busy'),'true');await page.getByText('当前密码不正确',{exact:true}).waitFor();assert.equal(await current.getAttribute('aria-invalid'),'true');await page.getByRole('button',{name:'取消修改',exact:true}).click();assert.equal(await current.inputValue(),'');
+  const boot=page.getByRole('switch',{name:'开机自动启动'});const value=await boot.isChecked();await boot.click();assert(await boot.isDisabled());assert.equal(await boot.getAttribute('aria-busy'),'true');await page.waitForFunction(()=>!document.querySelector('[role=switch]').disabled);assert.equal(await boot.isChecked(),!value);
+  await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:artifacts+'/settings-polished-'+width+'.png',fullPage:true});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.deepEqual(errors,[]);
+  await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('.boot-toggle input').evaluate(n=>getComputedStyle(n).transitionDuration),'0s');await context.close();console.log('PASS '+width+' settings reveal/reset, save state/errors, boot feedback, reduced motion, no overflow');
+ }}finally{await browser.close();}
+})().catch(e=>{console.error(e);process.exitCode=1;});

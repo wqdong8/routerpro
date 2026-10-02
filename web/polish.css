@@ -1,0 +1,78 @@
+:root{--surface:#f7f9fa;--focus:#176c9240}
+button,input,select,textarea,summary{transition:background-color .16s ease,border-color .16s ease,color .16s ease,box-shadow .16s ease,opacity .16s ease}
+button{font-weight:500;touch-action:manipulation;position:relative}
+button:active:not(:disabled),.node-menu summary:active{transform:translateY(1px)}
+button:focus-visible,summary:focus-visible{outline:2px solid var(--blue);outline-offset:3px;box-shadow:0 0 0 4px var(--focus)}
+input:focus,select:focus,textarea:focus{border-color:#5f99b0;box-shadow:0 0 0 3px #176c9212;outline:0}
+input:hover:not(:disabled):not(:focus),select:hover:not(:disabled):not(:focus),textarea:hover:not(:disabled):not(:focus){border-color:#a7b7c1}
+button.primary{box-shadow:0 1px 2px #14242e12}
+button.primary img{filter:brightness(0) invert(1)}
+button.danger:hover{background:#fff3f1;border-color:#e4b9b2}
+button.is-busy{cursor:progress;opacity:.8}
+button.is-busy.icon img,button.is-busy.command>img{visibility:hidden}
+button.is-busy.icon::after,button.is-busy.command::after{content:'';position:absolute;left:12px;top:50%;margin-top:-7px;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:routerpro-spin .8s linear infinite}
+button.is-busy.icon::after{left:50%;margin-left:-7px}
+nav button{transition:background-color .18s ease,color .18s ease}
+nav button.active{box-shadow:inset 3px 0 var(--blue)}
+nav button:hover:not(.active){background:#edf2f4}
+.row:not(.head){transition:background-color .16s ease}
+.nodes .row:not(.head):hover{background:#f8fafb}
+.nodes .selected:hover{background:#eef7f2}
+.node-tabs button:hover{background:transparent;color:var(--blue)}
+.node-tabs button.active{box-shadow:none}
+.node-menu summary:hover{background:#edf3f6;border-color:#b5c7d0}
+.node-menu[open] .menu-items{animation:routerpro-menu .14s ease-out both}
+.menu-item{min-height:36px}
+.menu-item:hover{background:#edf3f6}
+.menu-item.danger:hover{background:#fff1ef}
+dialog[open]{animation:routerpro-dialog .18s ease-out both}
+dialog[open]::backdrop{animation:routerpro-backdrop .18s ease-out both}
+dialog{box-shadow:0 16px 64px #15263030;border-color:#cad6de}
+dialog .actions{padding-top:16px;border-top:1px solid var(--line);margin-top:20px}
+.member-row:hover{background:#f6f9fa}
+.member-row:has(input:checked){background:#f0f7f9}
+.member-row input{cursor:pointer}
+.device-connections summary{transition:background-color .16s ease}
+.device-connections summary:hover{background:#f5f8fa}
+.device-connections .chevron{transition:transform .18s ease}
+.badge{font-weight:500}
+#toast:not([hidden]){animation:routerpro-toast .18s ease-out both;box-shadow:0 4px 18px #15263024}
+#error:not([hidden]){animation:routerpro-menu .16s ease-out both;line-height:1.65;font-size:13px;overflow-wrap:anywhere}
+.management-row:hover{background:#f9fbfc}
+.management-row{transition:background-color .16s ease}
+@keyframes routerpro-spin{to{transform:rotate(360deg)}}
+@keyframes routerpro-menu{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+@keyframes routerpro-dialog{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes routerpro-backdrop{from{background:#0000}to{background:#0005}}
+@keyframes routerpro-toast{from{opacity:0;margin-bottom:-6px}to{opacity:1;margin-bottom:0}}
+@media(max-width:700px){nav button.active{box-shadow:inset 0 -2px var(--blue)}.management-row .actions{gap:7px}.testing-toolbar button{font-size:12px}.node-filters{margin-bottom:8px}.node-tabs{gap:26px}.nodes .head{display:none}.nodes .row:not(.head):hover{background:inherit}.nodes .selected:hover{background:#f3f9f6}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}button:active:not(:disabled),.node-menu summary:active{transform:none}}
+.settings-section{display:grid;grid-template-columns:180px minmax(0,1fr);gap:24px;padding:28px 0}
+.settings-section h2{margin:2px 0 0;font-size:14px;font-weight:600}
+.settings-section:first-child{border-top:1px solid var(--line)}
+.settings-section .boot-setting{max-width:540px;min-height:40px}
+.boot-toggle{flex:1;justify-content:space-between;gap:16px}
+.boot-toggle input{width:40px;height:24px;flex-shrink:0;background:#b9c5cd}
+.boot-toggle input::before{width:20px;height:20px}
+.boot-toggle input:checked::before{transform:translateX(16px)}
+.boot-setting .badge{min-width:66px;justify-content:center;background:transparent;padding-inline:0}
+.account-form{width:100%;max-width:540px}
+.account-form .account-field{grid-template-columns:92px minmax(0,1fr);gap:18px;margin-bottom:18px}
+.field-caption{font-size:12px;color:#52616b;line-height:1.4}
+.field-control{position:relative;min-width:0}
+.field-control input{width:100%;height:42px;background:#fcfdfe}
+.password-control input{padding-right:46px}
+.account-form .password-reveal{position:absolute;right:3px;top:3px;width:36px;height:36px;border:0;background:transparent;margin:0;color:var(--muted)}
+.password-reveal img{width:17px;height:17px;opacity:.65}
+.account-form .password-reveal:hover{background:#edf3f6}
+.account-form .password-hint{margin-left:110px;font-size:11px;margin-top:-6px}
+.account-form .form-error{margin:12px 0 12px 110px;min-height:18px}
+.account-actions{display:flex;gap:10px;align-items:center;margin-left:110px}
+.account-form .account-actions button{margin:0;min-height:40px;font-size:13px}
+.account-form input[aria-invalid=true]{border-color:#ca8075;background:#fffaf9;box-shadow:0 0 0 3px #ca807512}
+.settings-info{margin:0;max-width:540px;gap:0;grid-template-columns:120px minmax(0,1fr)}
+.settings-info dt,.settings-info dd{padding:12px 0;border-bottom:1px solid #edf1f3;font-size:12px;line-height:1.6}
+.settings-info dt:first-child,.settings-info dd:nth-child(2){padding-top:0}
+.settings-info dd{color:#34444f;font-variant-numeric:tabular-nums}
+@media(max-width:1000px){.settings-section{grid-template-columns:135px minmax(0,1fr);gap:20px}}
+@media(max-width:700px){.settings-section{display:block;padding:22px 0}.settings-section h2{margin:0 0 20px;font-size:14px}.settings-section .boot-setting{max-width:none}.account-form{max-width:none}.account-form .account-field{display:flex;flex-direction:column;align-items:stretch;gap:8px;margin-bottom:18px}.field-control input{height:44px;font-size:16px}.account-form .password-reveal{height:38px;top:3px}.account-form .password-hint,.account-form .form-error,.account-actions{margin-left:0}.account-actions button{flex:1}.settings-info{grid-template-columns:106px minmax(0,1fr)}.settings-info dt,.settings-info dd{padding-block:12px}.boot-toggle{font-size:13px}.boot-setting{gap:14px}}

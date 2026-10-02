@@ -1,0 +1,84 @@
+#!/usr/bin/lua
+
+local json = require("luci.json")
+local base = "/data/rd15-proxy/"
+
+local function readfile(path)
+    local f = io.open(path, "r")
+    if not f then return "" end
+    local contents = f:read("*a")
+    f:close()
+    return contents
+end
+
+local function respond(status, data)
+    io.write("Status: " .. status .. "\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\n\r\n")
+    io.write(json.encode(data))
+end
+
+local pc = readfile(base .. "protected-mac"):match("^%s*(%x%x:%x%x:%x%x:%x%x:%x%x:%x%x)%s*$")
+if pc then pc=pc:lower() end
+local access = json.decode(readfile(base .. "access.json"))
+local method = os.getenv("REQUEST_METHOD")
+if method == "POST" then
+    local length = tonumber(os.getenv("CONTENT_LENGTH")) or 0
+    if length < 1 or length > 1024 then
+        respond("400 Bad Request", {error="Invalid request size"})
+        return
+    end
+    local ok, request = pcall(json.decode, io.read(length))
+    if not ok or type(request) ~= "table" then
+        respond("400 Bad Request", {error="Invalid JSON"})
+        return
+    end
+    if request.csrf ~= access.controller_secret then
+        respond("403 Forbidden", {error="Invalid request token"})
+        return
+    end
+    local mac = type(request.mac) == "string" and request.mac:lower() or ""
+    if not mac:match("^%x%x:%x%x:%x%x:%x%x:%x%x:%x%x$") or type(request.enabled) ~= "boolean" then
+        respond("400 Bad Request", {error="Invalid device"})
+        return
+    end
+    if mac == pc then
+        respond("403 Forbidden", {error="This computer is protected"})
+        return
+    end
+    local action = request.enabled and "add" or "remove"
+    local result = os.execute("/bin/sh " .. base .. "devices.sh " .. action .. " " .. mac .. " >/dev/null 2>&1")
+    if result ~= 0 then
+        respond("500 Internal Server Error", {error="Could not apply device rules"})
+        return
+    end
+elseif method ~= "GET" then
+    respond("405 Method Not Allowed", {error="Method not allowed"})
+    return
+end
+
+local enabled = {}
+for mac in readfile(base .. "devices.list"):gmatch("[^\r\n]+") do enabled[mac] = true end
+local devices = {}
+local found = {}
+for line in readfile("/tmp/dhcp.leases"):gmatch("[^\r\n]+") do
+    local expiry, mac, ip, hostname = line:match("^(%S+)%s+(%S+)%s+(%S+)%s+(%S+)")
+    if mac then
+        mac = mac:lower()
+        found[mac] = true
+        devices[#devices+1] = {mac=mac,ip=ip,name=hostname,enabled=enabled[mac] == true,protected=mac == pc}
+    end
+end
+for mac in pairs(enabled) do
+    if not found[mac] then
+        devices[#devices+1] = {mac=mac,ip="",name="Offline device",enabled=true,protected=mac == pc}
+    end
+end
+local process = io.popen("pidof mihomo")
+local running = process:read("*a") ~= ""
+process:close()
+local mem = readfile("/proc/meminfo")
+local system = {
+    memoryTotal = tonumber(mem:match("MemTotal:%s+(%d+)")) or 0,
+    memoryAvailable = tonumber(mem:match("MemAvailable:%s+(%d+)")) or 0,
+    uptime = tonumber(readfile("/proc/uptime"):match("^[%d%.]+")) or 0
+}
+respond("200 OK", {devices=devices,csrf=access.controller_secret,running=running,system=system})
